@@ -1,16 +1,22 @@
 <?php 
+
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Start the session
 session_start();
 
-// Debug: Display uploaded files
-echo var_dump($_FILES), "<br>";
-
-// Check if the total file size exceeds the limit
+// Check if the request method is POST and if files are uploaded
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_FILES)) {
     die("Error: Total file size exceeds the allowed limit.");
 }
 
+// Get the previous page for redirection
 $previousPage = $_SERVER['HTTP_REFERER'] ?? '../collection.php';
 
+// Check if the user is logged in
 if (isset($_SESSION['user'])) {
     include_once "./config.php";
 
@@ -26,13 +32,12 @@ if (isset($_SESSION['user'])) {
     $url .= $_SERVER['REQUEST_URI']; 
     $collectionId = substr(strstr($url, '='), 1);
 
-    // Create user folder if it doesn't exist
+    // Create user and collection folders if they don't exist
     $folder = "../assets/$id_user";
     if (!file_exists($folder)) {
         mkdir($folder, 0777, true);
     }
 
-    // Create collection folder if it doesn't exist
     $collectionFolder = "$folder/$collectionId";
     if (!file_exists($collectionFolder)) {
         mkdir($collectionFolder, 0777, true);
@@ -50,86 +55,89 @@ if (isset($_SESSION['user'])) {
         foreach ($_FILES['file']['name'] as $key => $filename) {
             // Skip files with upload errors
             if ($_FILES['file']['error'][$key] !== UPLOAD_ERR_OK) {
-                echo "Error uploading file: $filename (Error code: " . $_FILES['file']['error'][$key] . ")<br>";
                 continue;
             }
 
+            // Generate a unique name for the file
             $extensionUpload = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
             $og_name = $_FILES['file']['name'][$key];
             $directory_name = md5(uniqid(rand(), true)) . "." . $extensionUpload;
 
-            // Ensure unique file name
+            // Ensure the file name is unique in the database
             $check = $bdd->prepare('SELECT directory_name_file FROM photos WHERE directory_name_file = ?');
             $check->execute([$directory_name]);
-            $attempts = 0;
             while ($check->rowCount() > 0) {
                 $directory_name = md5(uniqid(rand(), true)) . "." . $extensionUpload;
                 $check->execute([$directory_name]);
-                $attempts++;
-                if ($attempts > 10) {
-                    die("Error: Unable to generate a unique file name.");
-                }
             }
 
-            // Create hd folder if it doesn't exist
+            // Create HD folder if it doesn't exist
             $hdFolder = "$collectionFolder/HD";
             if (!file_exists($hdFolder)) {
                 mkdir($hdFolder, 0777, true);
             }
 
             $tmp_name = $_FILES["file"]["tmp_name"][$key];
-            $destination = "$hdFolder/" . $directory_name;
+            $destination = "$hdFolder/$directory_name";
 
-            // Compress the image before moving it
-            $compressionQuality = 70; // Compression quality (0-100, 100 = best quality)
-            if (compressImage($tmp_name, $destination, $compressionQuality)) {
-                $file_size2 = filesize($destination);
-                $totalSize += $file_size2; // Add file size to total size
+            // Handle compression or direct copy based on HD option
+            $compressionQuality = isset($_POST['hd_option']) ? null : 60;
 
-                // Create thumbnails folder if it doesn't exist
-                $thumbnailFolder = "$collectionFolder/thumbnails";
-                if (!file_exists($thumbnailFolder)) {
-                    mkdir($thumbnailFolder, 0777, true);
+            if (isset($_POST['hd_option'])) {
+                if (!move_uploaded_file($tmp_name, $destination)) {
+                    continue;
                 }
-
-                // Generate thumbnail
-                $thumbnailPath = "$thumbnailFolder/" . $directory_name;
-                if (!createThumbnail($destination, $thumbnailPath, 720)) { // Max width/height: 720px
-                    echo "Error: Unable to generate thumbnail for image $filename<br>";
-                }
-
-                // Extract EXIF metadata from the image
-                $exifData = @exif_read_data($tmp_name);
-                $metadata = $exifData ? json_encode([
-                    'DateTimeOriginal' => $exifData['DateTimeOriginal'] ?? null,
-                    'Make' => $exifData['Make'] ?? null,
-                    'Model' => $exifData['Model'] ?? null,
-                    'ExposureTime' => $exifData['ExposureTime'] ?? null,
-                    'FNumber' => $exifData['FNumber'] ?? null,
-                    'ISOSpeedRatings' => $exifData['ISOSpeedRatings'] ?? null,
-                    'FocalLength' => $exifData['FocalLength'] ?? null,
-                    'GPSLatitude' => $exifData['GPSLatitude'] ?? null,
-                    'GPSLongitude' => $exifData['GPSLongitude'] ?? null
-                ]) : null;
-
-                // Insert file data into the database
-                $insert = $bdd->prepare('INSERT INTO photos (user_id, name_file, size, file_extension, directory_name_file, collection_id, metadata) VALUES(:user_id, :name_file, :size, :file_extension, :directory_name_file, :collection_id, :metadata)');
-                $insert->execute([
-                    'user_id' => $id_user,
-                    'name_file' => $og_name,
-                    'size' => $file_size2,
-                    'file_extension' => $extensionUpload,
-                    'directory_name_file' => $directory_name,
-                    'collection_id' => $collectionId,
-                    'metadata' => $metadata
-                ]);
-
-                // Update photo count in the collection
-                $update = "UPDATE collections SET photos_number = photos_number + 1 WHERE collection_id = $collectionId";
-                $bdd->exec($update);
+                $compressionQuality = 100;
             } else {
-                echo "Error: Unable to compress image $filename<br>";
+                if (!compressImage($tmp_name, $destination, $compressionQuality)) {
+                    continue;
+                }
             }
+
+            // Update total size
+            $file_size2 = filesize($destination);
+            $totalSize += $file_size2;
+
+            // Create thumbnail folder if it doesn't exist
+            $thumbnailFolder = "$collectionFolder/thumbnails";
+            if (!file_exists($thumbnailFolder)) {
+                mkdir($thumbnailFolder, 0777, true);
+            }
+
+            // Generate thumbnail
+            $thumbnailPath = "$thumbnailFolder/$directory_name";
+            createThumbnail($destination, $thumbnailPath, 720);
+
+            // Extract metadata from the image
+            $exifData = @exif_read_data($tmp_name);
+            $metadata = $exifData ? json_encode([
+                'DateTimeOriginal' => $exifData['DateTimeOriginal'] ?? null,
+                'Make' => $exifData['Make'] ?? null,
+                'Model' => $exifData['Model'] ?? null,
+                'ExposureTime' => $exifData['ExposureTime'] ?? null,
+                'FNumber' => $exifData['FNumber'] ?? null,
+                'ISOSpeedRatings' => $exifData['ISOSpeedRatings'] ?? null,
+                'FocalLength' => $exifData['FocalLength'] ?? null,
+                'GPSLatitude' => $exifData['GPSLatitude'] ?? null,
+                'GPSLongitude' => $exifData['GPSLongitude'] ?? null
+            ]) : json_encode([]);
+
+            // Insert photo details into the database
+            $insert = $bdd->prepare('INSERT INTO photos (user_id, name_file, size, file_extension, directory_name_file, collection_id, metadata, quality) VALUES(:user_id, :name_file, :size, :file_extension, :directory_name_file, :collection_id, :metadata, :quality)');
+            $insert->execute([
+                'user_id' => $id_user,
+                'name_file' => $og_name,
+                'size' => $file_size2,
+                'file_extension' => $extensionUpload,
+                'directory_name_file' => $directory_name,
+                'collection_id' => $collectionId,
+                'metadata' => $metadata,
+                'quality' => $compressionQuality ?? 60
+            ]);
+
+            // Update photo count in the collection
+            $update = "UPDATE collections SET photos_number = photos_number + 1 WHERE collection_id = $collectionId";
+            $bdd->exec($update);
         }
 
         // Update total size in the collection
@@ -139,7 +147,7 @@ if (isset($_SESSION['user'])) {
             'collection_id' => $collectionId
         ]);
 
-        // Ensure redirection after processing all files
+        // Redirect to the previous page
         if (!headers_sent()) {
             header("Location: $previousPage");
             exit();
@@ -148,22 +156,13 @@ if (isset($_SESSION['user'])) {
             exit();
         }
     } else {
-        // Redirect if no files were uploaded
         header('Location: ../collection.php?collection_id=' . $collectionId);
     }
 } else {
-    // Redirect to login page if user is not authenticated
     header('Location: ../login.php');
 }
 
-/**
- * Compress an image and save it to a specified destination.
- *
- * @param string $source Path to the source file.
- * @param string $destination Path to the destination file.
- * @param int $quality Compression quality (0-100).
- * @return bool Returns true if compression succeeds, otherwise false.
- */
+// Function to compress an image
 function compressImage($source, $destination, $quality) {
     $info = getimagesize($source);
 
@@ -172,24 +171,16 @@ function compressImage($source, $destination, $quality) {
     } elseif ($info['mime'] == 'image/png') {
         $image = imagecreatefrompng($source);
     } else {
-        return false; // Unsupported format
+        return false;
     }
 
-    // Save the compressed image
     $result = imagejpeg($image, $destination, $quality);
     imagedestroy($image);
 
     return $result;
 }
 
-/**
- * Generate a thumbnail for a given image with a maximum resolution of 1080p.
- *
- * @param string $source Path to the source file.
- * @param string $destination Path to the destination file.
- * @param int $maxDimension Maximum dimension (width or height).
- * @return bool Returns true if thumbnail generation succeeds, otherwise false.
- */
+// Function to create a thumbnail
 function createThumbnail($source, $destination, $maxDimension = 1080) {
     $info = getimagesize($source);
     $mime = $info['mime'];
@@ -205,13 +196,12 @@ function createThumbnail($source, $destination, $maxDimension = 1080) {
             $image = imagecreatefromgif($source);
             break;
         default:
-            return false; // Unsupported format
+            return false;
     }
 
     $width = imagesx($image);
     $height = imagesy($image);
 
-    // Calculate new dimensions while maintaining aspect ratio
     if ($width > $height) {
         $thumbWidth = $maxDimension;
         $thumbHeight = floor($height * ($maxDimension / $width));
@@ -221,12 +211,9 @@ function createThumbnail($source, $destination, $maxDimension = 1080) {
     }
 
     $thumbnail = imagecreatetruecolor($thumbWidth, $thumbHeight);
-
-    // Resize the image
     imagecopyresampled($thumbnail, $image, 0, 0, 0, 0, $thumbWidth, $thumbHeight, $width, $height);
 
-    // Save the thumbnail
-    $result = imagejpeg($thumbnail, $destination, 80); // Quality 80
+    $result = imagejpeg($thumbnail, $destination, 80);
     imagedestroy($image);
     imagedestroy($thumbnail);
 

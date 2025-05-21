@@ -1,14 +1,15 @@
 <?php 
+    // Start the session
     session_start();
     require_once './php_back/config.php'; // ajout connexion bdd 
 
-    // si la session existe pas soit si l'on est pas connecté on redirige
-    if(!isset($_SESSION['user'])){
+    // Check if the user is logged in
+    if (!isset($_SESSION['user'])) {
         header('Location: login.php');
         die();
     }
 
-    // On récupere les données de l'utilisateur
+    // Retrieve user data from the database
     $req = $bdd->prepare('SELECT * FROM users WHERE token = ?');
     $req->execute(array($_SESSION['user']));
     $data = $req->fetch();
@@ -30,6 +31,7 @@
         exit();
     }
 
+    // Check if the collection belongs to the user
     $checkCollection = $bdd->prepare('SELECT * FROM collections WHERE collection_id = ? AND user_id = ?');
     $checkCollection->execute(array($collectionId, $id));
     if (!$checkCollection->fetch()) {
@@ -63,18 +65,25 @@
         <h3><?php echo htmlspecialchars($collection['photos_number']); ?> photos</h3>
         <h3>Taille totale : <?php echo number_format($totalSizeInMB, 2); ?> Mo</h3>
         <form enctype="multipart/form-data" method="POST" action="./php_back/new_file.php?=<?php echo $collectionId; ?>">
-    
-        <input class="input-file" id="my-file" name="file[]" type="file" accept="image/png, image/jpeg" style="width: 182px;" multiple required="required"/>
+            <label>
+                <input type="checkbox" name="hd_option" value="1"> Activer l'option HD
+            </label>
+            <input class="input-file" id="my-file" name="file[]" type="file" accept="image/png, image/jpeg" style="width: 182px;" multiple required="required"/>
 
-        <label for="my-file" class="input-file-trigger" tabindex="0">
-            <i class="fa-solid fa-upload"></i> Selectionner un fichier
-        </label>
-        <button type="submit">Upload</button>
-    </form>
+            <label for="my-file" class="input-file-trigger" tabindex="0">
+                <i class="fa-solid fa-upload"></i> Sélectionner un fichier
+            </label>
+            <button type="submit">Upload</button>
+        </form>
 
     <form method="POST" action="./php_back/delete_collection.php" class="delete-collection-form">
         <input type="hidden" name="collection_id" value="<?php echo htmlspecialchars($collectionId); ?>">
         <button type="submit" class="delete-collection-button">Supprimer la collection</button>
+    </form>
+
+    <form method="POST" action="./php_back/delete_all_photos.php" class="delete-all-photos-form">
+        <input type="hidden" name="collection_id" value="<?php echo htmlspecialchars($collectionId); ?>">
+        <button type="submit" class="delete-all-photos-button">Supprimer toutes les photos</button>
     </form>
     <?php
     }
@@ -380,6 +389,20 @@
         }
 
         .delete-collection-button:hover {
+            background-color: #A10E0E;
+        }
+
+        .delete-all-photos-button {
+            background-color: #D12C2C;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+
+        .delete-all-photos-button:hover {
             background-color: #A10E0E;
         }
     </style>

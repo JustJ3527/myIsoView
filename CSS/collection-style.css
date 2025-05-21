@@ -1,0 +1,81 @@
+body {
+    padding: 20px;
+}
+h1::first-letter {
+    text-transform: capitalize;
+}
+h1 {
+    background-color: #598fb3;
+}
+.delete {
+    color: #D12C2C;
+}
+
+.grid-container {
+    display: flex;
+    gap: 20px; /* Increase the gap between columns */
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.grid-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* Increase the gap between rows */
+}
+
+.grid-item {
+    position: relative;
+    overflow: hidden;
+}
+
+.grid-item img {
+    display: block;
+    width: 100%;
+    height: auto;
+    transition: transform 0.3s ease, box-shadow 0.3s ease; /* Add smooth hover effect */
+}
+
+.grid-item:hover img {
+    transform: scale(1.05); /* Zoom effect on hover */
+}
+
+@media (max-width: 1024px) {
+    .grid-container {
+        flex-wrap: wrap;
+    }
+    .grid-column {
+        flex: 0 0 calc(33.33% - 10px); /* 3 columns for medium screens */
+    }
+}
+
+@media (max-width: 768px) {
+    .grid-column {
+        flex: 0 0 calc(50% - 10px); /* 2 columns for small screens */
+    }
+}
+
+.delete-button {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background-color: rgba(209, 44, 44, 0.8);
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    z-index: 10; /* Ensure button is above the image */
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.3s ease;
+}
+
+.grid-item:hover .delete-button {
+    opacity: 1; /* Show on hover */
+}
+
+.delete-button:hover {
+    background-color: rgba(161, 14, 14, 0.9);
+}

@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /360viewer/
+    
+    # Si le fichier ou le dossier existe, on le laisse tel quel
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Sinon, on redirige vers index.php
+    RewriteRule ^(.*)$ home.php [L]
+</IfModule>

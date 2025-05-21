@@ -7,7 +7,7 @@
            
          */
     $hostname = "localhost";
-    $dbname = "db_3d_viewer";
+    $dbname = "myISOView_db";
     try 
     {
         $bdd = new PDO("mysql:host=$hostname; dbname=$dbname; charset=utf8","root", "");

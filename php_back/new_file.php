@@ -43,6 +43,8 @@ if (isset($_SESSION['user'])) {
         die("Error: Destination folder is not writable.");
     }
 
+    $totalSize = 0; // Initialize total size variable
+
     // Process uploaded files
     if (!empty($_FILES['file']['name'])) {
         foreach ($_FILES['file']['name'] as $key => $filename) {
@@ -69,13 +71,20 @@ if (isset($_SESSION['user'])) {
                 }
             }
 
+            // Create hd folder if it doesn't exist
+            $hdFolder = "$collectionFolder/HD";
+            if (!file_exists($hdFolder)) {
+                mkdir($hdFolder, 0777, true);
+            }
+
             $tmp_name = $_FILES["file"]["tmp_name"][$key];
-            $destination = "$collectionFolder/" . $directory_name;
+            $destination = "$hdFolder/" . $directory_name;
 
             // Compress the image before moving it
-            $compressionQuality = 100; // Compression quality (0-100, 100 = best quality)
+            $compressionQuality = 70; // Compression quality (0-100, 100 = best quality)
             if (compressImage($tmp_name, $destination, $compressionQuality)) {
                 $file_size2 = filesize($destination);
+                $totalSize += $file_size2; // Add file size to total size
 
                 // Create thumbnails folder if it doesn't exist
                 $thumbnailFolder = "$collectionFolder/thumbnails";
@@ -122,6 +131,14 @@ if (isset($_SESSION['user'])) {
                 echo "Error: Unable to compress image $filename<br>";
             }
         }
+
+        // Update total size in the collection
+        $updateSize = $bdd->prepare("UPDATE collections SET total_size = total_size + :total_size WHERE collection_id = :collection_id");
+        $updateSize->execute([
+            'total_size' => $totalSize,
+            'collection_id' => $collectionId
+        ]);
+
         // Ensure redirection after processing all files
         if (!headers_sent()) {
             header("Location: $previousPage");

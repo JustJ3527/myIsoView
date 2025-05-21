@@ -33,6 +33,7 @@
                 if($id = $recupId->fetch()){
                     if(isset($id['max_id'])) {
                         $lastId = $id['max_id']; // ID de la dernière collection
+                        $_SESSION['collection_id'] = $lastId; // Mettre à jour la session avec le nouvel ID de collection
                         echo "Last ID: ".$lastId;
 
                         // Création du dossier pour l'utilisateur s'il n'existe pas

@@ -54,9 +54,14 @@
     <?php
     $recupCollection = $bdd->query('SELECT * FROM collections WHERE collection_id = ' . $collectionId . ' AND user_id = ' . $id);
     if ($collection = $recupCollection->fetch()) {
+        $totalSizeInMB = $collection['total_size'] / (1024 * 1024); // Convertir en Mo
     ?>
         <h1><?php echo htmlspecialchars($collection['name']); ?></h1>
+        <h4><?php echo htmlspecialchars($collection['collection_id']); ?></h4>
+
+        <h2><?php echo htmlspecialchars($collection['status']); ?></h2>
         <h3><?php echo htmlspecialchars($collection['photos_number']); ?> photos</h3>
+        <h3>Taille totale : <?php echo number_format($totalSizeInMB, 2); ?> Mo</h3>
         <form enctype="multipart/form-data" method="POST" action="./php_back/new_file.php?=<?php echo $collectionId; ?>">
     
         <input class="input-file" id="my-file" name="file[]" type="file" accept="image/png, image/jpeg" style="width: 182px;" multiple required="required"/>
@@ -65,6 +70,11 @@
             <i class="fa-solid fa-upload"></i> Selectionner un fichier
         </label>
         <button type="submit">Upload</button>
+    </form>
+
+    <form method="POST" action="./php_back/delete_collection.php" class="delete-collection-form">
+        <input type="hidden" name="collection_id" value="<?php echo htmlspecialchars($collectionId); ?>">
+        <button type="submit" class="delete-collection-button">Supprimer la collection</button>
     </form>
     <?php
     }
@@ -116,7 +126,7 @@
                 $backgroundImage = './assets/' . htmlspecialchars($id) . '/' . htmlspecialchars($collectionId) . '/thumbnails/' . htmlspecialchars($photo['directory_name_file']);
         ?>
                 <div class="grid-item">
-                    <img src="<?php echo $backgroundImage; ?>" alt="Image" onclick="openPopup('./assets/<?php echo htmlspecialchars($id); ?>/<?php echo htmlspecialchars($collectionId); ?>/<?php echo htmlspecialchars($photo['directory_name_file']); ?>')">
+                    <img src="<?php echo $backgroundImage; ?>" alt="Image" onclick="openPopup('./assets/<?php echo htmlspecialchars($id); ?>/<?php echo htmlspecialchars($collectionId); ?>/HD/<?php echo htmlspecialchars($photo['directory_name_file']); ?>')">
                     <form method="POST" action="./php_back/delete_file.php" class="delete">
                         <input type="hidden" name="file_id" value="<?php echo htmlspecialchars($photo['file_id']); ?>">
                         <button type="submit" class="delete-button">Supprimer</button>
@@ -154,11 +164,15 @@
             window.resizeTimeout = setTimeout(updateScreenWidth, 500); // Debounce to avoid excessive reloads
         });
 
+
+        //------------------------------------//
+
+
         // Function to open the popup with the full image
         function openPopup(imageSrc) {
             const popup = document.getElementById('imagePopup');
             const popupImage = document.getElementById('popupImage');
-            popupImage.src = imageSrc;
+            popupImage.src = imageSrc; // Update path to include HD
             popup.style.display = 'flex';
         }
 
@@ -171,18 +185,6 @@
                 popup.classList.remove('closing'); // Remove closing class after animation
             }, 500); // Match this duration with the CSS animation duration
         }
-
-        // Update the --click-x and --click-y CSS variables on image click
-        document.querySelectorAll('.grid-item img').forEach(img => {
-            img.addEventListener('click', function(event) {
-                const rect = this.getBoundingClientRect();
-                const x = event.clientX - rect.left;
-                const y = event.clientY - rect.top;
-                const popup = document.getElementById('imagePopup');
-                // popup.style.setProperty('--click-x', `${x}px`);
-                // popup.style.setProperty('--click-y', `${y}px`);
-            });
-        });
 
         // Close the popup when clicking outside the image
         document.getElementById('imagePopup').addEventListener('click', function(event) {
@@ -365,6 +367,20 @@
             font-size: 30px;
             color: white;
             cursor: pointer;
+        }
+
+        .delete-collection-button {
+            background-color: #D12C2C;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+
+        .delete-collection-button:hover {
+            background-color: #A10E0E;
         }
     </style>
 </body>

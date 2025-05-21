@@ -51,7 +51,7 @@
                 $collectionId = $file['collection_id'];
 
                 // Delete the file from the server
-                $place = "../assets/$id/$collectionId/$name_file";
+                $place = "../assets/$id/$collectionId/HD/$name_file";
                 if (file_exists($place)) {
                     unlink($place);
                 }
@@ -66,9 +66,9 @@
                 $suppr = $bdd->prepare('DELETE FROM photos WHERE file_id = ?');
                 $suppr->execute([$id_file]);
 
-                // Update the collection's photo count
-                $update = $bdd->prepare('UPDATE collections SET photos_number = photos_number - 1 WHERE collection_id = ?');
-                $update->execute([$collectionId]);
+                // Update the collection's photo count and total size
+                $update = $bdd->prepare('UPDATE collections SET photos_number = photos_number - 1, total_size = total_size - ? WHERE collection_id = ?');
+                $update->execute([$file['size'], $collectionId]);
 
                 // Redirect to the previous page or collection.php if no referer is available
                 $previousPage = $_SERVER['HTTP_REFERER'] ?? '../collection.php';

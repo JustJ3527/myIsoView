@@ -258,9 +258,6 @@
         }
 
         @media (max-width: 1024px) {
-            .grid-container {
-                /*flex-wrap: wrap;*/
-            }
             .grid-column {
                 flex: 0 0 calc(33.33% - 10px); /* 3 columns for medium screens */
             }
